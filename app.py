@@ -25,6 +25,10 @@ import warnings
 
 import time as tm
 
+import schedule
+
+from schedule import every, repeat
+
 import dask.dataframe as dd
 
 from dotenv import load_dotenv
@@ -43,6 +47,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
+@repeat(every().day.at("01:30"))
 def main_func():
 
     # def get_data():
@@ -579,7 +584,12 @@ def main_func():
 
         return _df
 
+
+
+
     agg_df = ddf_new.map_partitions(get_agg)
+
+
 
     # agg_df.head(n = 3)
 
@@ -630,6 +640,8 @@ def main_func():
 
         return client
 
+
+
     def db_insert(data, dbname, collname):
 
         counter = 0
@@ -666,21 +678,26 @@ def main_func():
 
                     print("\nPreparing to insert data.\n")
 
+
                     # Write data to collection
+
 
                     def convert_to_dict(df):
 
                         return df.to_dict(orient='records')
 
-                        data = data.map_partitions(convert_to_dict).compute()
+                    
+                    dat = data.map_partitions(convert_to_dict).compute()
 
-                    if len(data) > 1:
 
-                        coll.insert_many(data.to_dict(orient='records'))
+                    if len(dat) > 1:
 
-                    elif len(data) == 1:
+                        coll.insert_many(dat)
 
-                        coll.insert_one(data.to_dict(orient='records'))
+
+                    elif len(dat) == 1:
+
+                        coll.insert_one(dat)
 
                     else:
 
@@ -721,6 +738,8 @@ def main_func():
                     counter += 1
 
                     continue
+
+
 
     def db_insert_mappings(data, dbname, collname):
 
@@ -810,6 +829,7 @@ def main_func():
 
             #     db_insert(data = datasets[i], dbname = dbname, collname = collnames[i])
 
+
     def db_get(dbname, collname):
 
         counter = 0
@@ -829,6 +849,11 @@ def main_func():
                     if coll.count_documents({}) > 0:
 
                         return list(coll.find({}, projection={"_id": False}))
+
+
+                    else:
+
+                    	return None
 
                 else:
 
@@ -863,6 +888,7 @@ def main_func():
                     counter += 1
 
                     continue
+
 
     def drop_collections(dbname):
 
@@ -932,6 +958,10 @@ def main_func():
 
     drop_collections(os.getenv('mongodb_dbname'))
 
+
+    print(type(agg_df))
+
+
     db_insert(
         agg_df,
         os.getenv("mongodb_dbname"),
@@ -958,7 +988,8 @@ def main_func():
 
 
 
-if __name__ == "__main__":
+while True:
 
+	schedule.run_pending()
 
-    main_func()
+	tm.sleep(1)
